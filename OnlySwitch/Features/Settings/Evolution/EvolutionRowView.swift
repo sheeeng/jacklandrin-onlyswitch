@@ -12,7 +12,7 @@ import Utilities
 
 struct EvolutionRowView: View {
 
-    @Perception.Bindable var store: StoreOf<EvolutionRowReducer>
+    @SwiftUI.Bindable var store: StoreOf<EvolutionRowReducer>
     @ObservedObject var langManager = LanguageManager.sharedManager
 
     init(store: StoreOf<EvolutionRowReducer>) {

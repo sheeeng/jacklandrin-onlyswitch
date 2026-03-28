@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "Modules",
     platforms: [
-        .macOS(.v13)
+        .macOS(.v14)
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
@@ -48,7 +48,8 @@ let package = Package(
         .package(url: "https://github.com/siteline/swiftui-introspect", from: "26.0.0"),
         .package(url: "https://github.com/lzell/AIProxySwift", exact: "0.146.0"),
         .package(url: "https://github.com/firebase/firebase-ios-sdk", exact: "12.6.0"),
-        .package(url: "https://github.com/jacklandrin/ollama-swift", revision: "04a5730fa8aace6fcca8a1cebb83562cfe7dee06")
+        .package(url: "https://github.com/jacklandrin/ollama-swift", revision: "04a5730fa8aace6fcca8a1cebb83562cfe7dee06"),
+        .package(url: "https://github.com/timazed/CodexKit", revision: "85c410cc1f3adfd256c7e43bbe978ce892b27408")
     ],
     targets: [
         .target(
@@ -99,6 +100,7 @@ let package = Package(
                 .product(name: "AIProxy", package: "AIProxySwift"),
                 .product(name: "FirebaseAILogic", package: "firebase-ios-sdk"),
                 .product(name: "Ollama", package: "ollama-swift"),
+                .product(name: "CodexKit", package: "CodexKit"),
                 "Extensions",
                 "Defines",
                 "Design"

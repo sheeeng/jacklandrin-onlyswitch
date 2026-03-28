@@ -113,9 +113,11 @@ public struct PromptDialogueReducer {
                             .loadModels(
                                 TaskResult {
                                     let openaiModels = try await providerService.models(.openai)
+                                    let codexModels = try await providerService.models(.codex)
                                     let geminiModels = try await providerService.models(.gemini)
                                     return [
                                         .openai: openaiModels.map(\.model),
+                                        .codex: codexModels.map(\.model),
                                         .gemini: geminiModels.map(\.model)
                                     ]
                                 }

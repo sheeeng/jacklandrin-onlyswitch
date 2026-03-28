@@ -1,5 +1,5 @@
 {
-  "originHash" : "9d8256dcfe31a9bec4ebb0a2d954463068454ea2d97c416bb7b99542bff43fac",
+  "originHash" : "508ac74ce380d8acb649cd66818c340b15cb5e833f13fac972e2b1613fe15a80",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -44,6 +44,15 @@
       "state" : {
         "revision" : "61b85103a1aeed8218f17c794687781505fbbef5",
         "version" : "11.2.0"
+      }
+    },
+    {
+      "identity" : "codexkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/timazed/CodexKit",
+      "state" : {
+        "branch" : "main",
+        "revision" : "85c410cc1f3adfd256c7e43bbe978ce892b27408"
       }
     },
     {
@@ -98,6 +107,15 @@
       "state" : {
         "revision" : "60da361632d0de02786f709bdc0c4df340f7613e",
         "version" : "8.1.0"
+      }
+    },
+    {
+      "identity" : "grdb.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/groue/GRDB.swift.git",
+      "state" : {
+        "revision" : "36e30a6f1ef10e4194f6af0cff90888526f0c115",
+        "version" : "7.10.0"
       }
     },
     {

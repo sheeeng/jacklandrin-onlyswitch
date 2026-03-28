@@ -11,7 +11,7 @@ import SwiftUI
 
 struct StickerView: View {
     
-    @Perception.Bindable var store: StoreOf<StickerReducer>
+    @SwiftUI.Bindable var store: StoreOf<StickerReducer>
     @Environment(\.controlActiveState) private var controlActiveState
     @State private var contentSize: CGSize = .zero
     

@@ -241,6 +241,7 @@ Since version 2.3.10, this switch can be controlled via right-click icons.
 * Key Light refers to [mac-brightnessctl](https://github.com/rakalex/mac-brightnessctl)
 * [AIProxySwift](https://github.com/lzell/AIProxySwift)
 * [ollama-swift](https://github.com/mattt/ollama-swift)
+* [CodexKit](https://github.com/timazed/CodexKit)
 
 ## Contributors
 

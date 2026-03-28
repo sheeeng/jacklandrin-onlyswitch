@@ -228,6 +228,17 @@ public struct PromptDialogueView: View {
                         }
                     }
                 }
+                if let codexModels = store.modelTags[.codex] {
+                    Text("Codex")
+                        .foregroundStyle(.secondary)
+                    ForEach(codexModels, id: \.self) { model in
+                        Button {
+                            store.send(.selectAIModel(provider: ModelProvider.codex.rawValue, model: model))
+                        } label: {
+                            Text(model)
+                        }
+                    }
+                }
                 if let geminiModels = store.modelTags[.gemini] {
                     Text("Gemini")
                         .foregroundStyle(.secondary)

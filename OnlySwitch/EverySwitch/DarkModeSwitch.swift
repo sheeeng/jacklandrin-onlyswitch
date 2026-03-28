@@ -15,26 +15,11 @@ final class DarkModeSwitch: SwitchProvider, @unchecked Sendable {
     
     @MainActor
     func currentStatus() async -> Bool {
-        if #available(macOS 14.0, *) {
-            do {
-                let result = try await DarkModeCMD.status_applescript.runAppleScript()
-                return result == "true" ? true : false
-            } catch {
-                return false
-            }
-        } else {
-            do {
-                let result = try await DarkModeCMD.status.runAppleScript(isShellCMD: true)
-
-                if result == "Dark" {
-                    return true
-                } else {
-                    return false
-                }
-
-            } catch {
-                return false
-            }
+        do {
+            let result = try await DarkModeCMD.status_applescript.runAppleScript()
+            return result == "true" ? true : false
+        } catch {
+            return false
         }
     }
     

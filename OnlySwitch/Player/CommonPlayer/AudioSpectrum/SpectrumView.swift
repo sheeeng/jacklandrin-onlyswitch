@@ -5,7 +5,6 @@
 //
 
 import AppKit
-import Extensions
 
 class SpectrumView: NSView {
     

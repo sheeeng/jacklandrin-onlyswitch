@@ -8,6 +8,7 @@
 public enum ModelProvider: String, Sendable {
     case ollama
     case openai
+    case codex
     case gemini
 }
 

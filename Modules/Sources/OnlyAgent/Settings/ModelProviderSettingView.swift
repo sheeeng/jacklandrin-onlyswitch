@@ -32,6 +32,14 @@ public struct ModelProviderSettingView: View {
                 ) {
                     selection = .openai
                 }
+
+                CustomTabItem(
+                    icon: "codex",
+                    title: "Codex",
+                    isSelected: selection == .codex
+                ) {
+                    selection = .codex
+                }
                 
                 CustomTabItem(
                     icon: "gemini",
@@ -50,6 +58,8 @@ public struct ModelProviderSettingView: View {
                         OllamaSettingView(store: .init(initialState: .init(), reducer: OllamaSettingReducer.init))
                     case .openai:
                         OpenAISettingView(store: .init(initialState: .init(), reducer: OpenAISettingReducer.init))
+                    case .codex:
+                        CodexSettingView(store: .init(initialState: .init(), reducer: CodexSettingReducer.init))
                     case .gemini:
                         GeminiSettingView(store: .init(initialState: .init(), reducer: GeminiSettingReducer.init))
                 }

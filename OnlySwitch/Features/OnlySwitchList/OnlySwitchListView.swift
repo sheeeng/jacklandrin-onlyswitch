@@ -142,11 +142,7 @@ struct OnlySwitchListView: View {
                 .onHover{ isHovering in
                     if isHovering {
                         withAnimation(.easeOut) {
-                            if #available(macOS 14.0, *) {
-                                self.focusedBar = .row(index: index)
-                            } else {
-                                self.hoverIndex = index
-                            }
+                            self.focusedBar = .row(index: index)
                         }
                     }
                 }
@@ -523,16 +519,11 @@ struct OnlySwitchListView: View {
         if switchVM.sortMode {
             return index == movingIndex ? 1.008 : 1.0
         } else {
-            if #available(macOS 14.0, *) {
-                if focusedBar == .row(index: index) {
-                    return 1.008
-                } else {
-                    return 1.0
-                }
+            if focusedBar == .row(index: index) {
+                return 1.008
             } else {
-                return index == hoverIndex ? 1.008 : 1.0
+                return 1.0
             }
-
         }
     }
     
@@ -540,11 +531,7 @@ struct OnlySwitchListView: View {
         if switchVM.sortMode {
             return index == movingIndex ? true : false
         } else {
-            if #available(macOS 14.0, *) {
-                return focusedBar == .row(index: index)
-            } else {
-                return index == hoverIndex
-            }
+            return focusedBar == .row(index: index)
         }
     }
 }
