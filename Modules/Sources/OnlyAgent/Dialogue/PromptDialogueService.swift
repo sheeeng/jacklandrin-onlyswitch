@@ -60,13 +60,18 @@ extension PromptDialogueService: DependencyKey {
     public static let liveValue: Self = {
         return .init { prompt, modelProvider, model, isAgentMode in
             let generator = AgentCommandGenerater()
-            let script = try await generator.execute(
-                prompt: prompt,
-                modelProvider: modelProvider,
-                model: model,
-                isAgentModel: isAgentMode
-            )
-            return script
+            do {
+                let script = try await generator.execute(
+                    prompt: prompt,
+                    modelProvider: modelProvider,
+                    model: model,
+                    isAgentModel: isAgentMode
+                )
+                return script
+            } catch {
+                print(error)
+                throw error
+            }
         } execute: { script in
             _ = try await script.runAppleScript()
         } generatePlan: { prompt, context, modelProvider, model in

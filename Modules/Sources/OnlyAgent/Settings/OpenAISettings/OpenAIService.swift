@@ -7,7 +7,7 @@
 
 import Dependencies
 import DependenciesMacros
-import OpenAI
+import AIProxy
 import Foundation
 import Sharing
 
@@ -16,19 +16,28 @@ public enum OpenAIError: Error {
 }
 
 final class OpenAILive: Sendable {
-    private let openAI = LockIsolated<OpenAI?>(nil)
-    
     @Sendable
     func setAPIToken(_ apiToken: String, host: String = "api.openai.com") {
+        @Shared(.openAIAPIKey) var apiKeyShared: String = ""
+        @Shared(.openAIHost) var hostShared
         guard !apiToken.isEmpty else {
             return
         }
-        openAI.setValue(OpenAI(configuration: .init(token: apiToken, host: host)))
+        $apiKeyShared.withLock { $0 = apiToken }
+        $hostShared.withLock { $0 = host }
     }
     
     @Sendable
     func models() -> [ProviderModel] {
-        Model.allModels(satisfying: .init(supportedEndpoints: [.chatCompletions])).map { .init(model: $0) }
+        [
+            "gpt-5.4",
+            "gpt-5.2",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "gpt-4.1",
+            "gpt-4.1-mini"
+        ]
+        .map(ProviderModel.init)
     }
     
     @Sendable
@@ -37,26 +46,39 @@ final class OpenAILive: Sendable {
         @Shared(.openAIHost) var hostShared
         let apiKey: String = apiKeyShared
         let host: String = hostShared
-        if openAI.value == nil {
-            openAI.setValue(OpenAI(configuration: .init(token: apiKey, host: host)))
-        }
-        guard let openAI = openAI.value else {
+        
+        guard !apiKey.isEmpty else {
             throw OpenAIError.uninitialized
         }
-        let systemMessage = ChatQuery.ChatCompletionMessageParam(role: .system, content: "You are an AppleScript expert. You generate executable AppleScript code (NOT shell scripts) for macOS automation. Always use AppleScript syntax with 'tell application' commands. Never output shell scripts or bash commands directly.")
-        let userMessage = ChatQuery.ChatCompletionMessageParam(role: .user, content: prompt)
-        guard let systemMessage, let userMessage else {
-            return ""
-        }
         
-        let result = try await openAI.chats(
-            query: .init(
+        let baseURL: String? = {
+            guard !host.isEmpty else { return nil }
+            if host.hasPrefix("http://") || host.hasPrefix("https://") {
+                return host
+            }
+            return "https://\(host)"
+        }()
+        let requestFormat: OpenAIRequestFormat = {
+            guard let baseURL else { return .standard }
+            if baseURL.contains("/v1") {
+                return .noVersionPrefix
+            }
+            return .standard
+        }()
+        let openAIService = AIProxy.openAIDirectService(
+            unprotectedAPIKey: apiKey,
+            baseURL: baseURL,
+            requestFormat: requestFormat
+        )
+        let result = try await openAIService.chatCompletionRequest(
+            body: .init(
+                model: model,
                 messages: [
-                    systemMessage,
-                    userMessage
-                ],
-                model: model
-            )
+                    .system(content: .text("You are an AppleScript expert. You generate executable AppleScript code (NOT shell scripts) for macOS automation. Always use AppleScript syntax with 'tell application' commands. Never output shell scripts or bash commands directly.")),
+                    .user(content: .text(prompt))
+                ]
+            ),
+            secondsToWait: 120
         )
         
         return result.choices.first?.message.content ?? ""
@@ -64,7 +86,11 @@ final class OpenAILive: Sendable {
     
     @Sendable
     func test() async -> Bool {
-        let models = try? await openAI.value?.models()
-        return models != nil
+        do {
+            let _ = try await chat("gpt-4.1-mini", "Hello")
+            return true
+        } catch {
+            return false
+        }
     }
 }
