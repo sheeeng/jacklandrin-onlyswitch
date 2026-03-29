@@ -24,14 +24,31 @@ final class GeminiLive: Sendable {
     
     @Sendable
     func chat(_ model: String, _ prompt: String) async throws -> String {
+        let stream = try await chatStream(model, prompt)
+        var finalText = ""
+        
+        for try await event in stream {
+            switch event {
+            case let .contentDelta(delta):
+                finalText += delta
+            case let .completed(text):
+                finalText = text
+            case .thinkingDelta:
+                break
+            }
+        }
+        
+        return finalText
+    }
+    
+    @Sendable
+    func chatStream(_ model: String, _ prompt: String) async throws -> AsyncThrowingStream<ModelStreamEvent, Error> {
         @Shared(.geminiAPIKey) var apiKeyShared: String = ""
         let apiKey: String = apiKeyShared
         
         guard !apiKey.isEmpty else {
             throw GeminiError.uninitialized
         }
-        
-        let systemInstruction = "You are an AppleScript expert. You generate executable AppleScript code (NOT shell scripts) for macOS automation. Always use AppleScript syntax with 'tell application' commands. Never output shell scripts or bash commands directly."
         
         let geminiService = AIProxy.geminiDirectService(unprotectedAPIKey: apiKey)
         let requestBody = GeminiGenerateContentRequestBody(
@@ -46,32 +63,41 @@ final class GeminiLive: Sendable {
             generationConfig: .init(maxOutputTokens: 1024),
             systemInstruction: .init(
                 parts: [
-                    .text(systemInstruction)
+                    .text(AppleScriptSystemPrompt.withCurrentMacOSVersion)
                 ]
             )
         )
-        
-        let response = try await geminiService.generateContentRequest(
+
+        let responseStream = try await geminiService.generateStreamingContentRequest(
             body: requestBody,
             model: model,
             secondsToWait: 120
         )
-
-        guard let candidate = response.candidates?.first else {
-            throw GeminiError.invalidResponse
-        }
-
-        guard let parts = candidate.content?.parts else {
-            throw GeminiError.invalidResponse
-        }
-
-        for part in parts {
-            if case let .text(text) = part {
-                return text
+        
+        return AsyncThrowingStream { continuation in
+            Task {
+                var finalText = ""
+                
+                do {
+                    for try await response in responseStream {
+                        guard let candidates = response.candidates else { continue }
+                        for candidate in candidates {
+                            guard let parts = candidate.content?.parts else { continue }
+                            for part in parts {
+                                guard case let .text(text) = part, !text.isEmpty else { continue }
+                                finalText += text
+                                continuation.yield(.contentDelta(text))
+                            }
+                        }
+                    }
+                    
+                    continuation.yield(.completed(finalText: finalText))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
             }
         }
-        
-        throw GeminiError.invalidResponse
     }
     
     @Sendable

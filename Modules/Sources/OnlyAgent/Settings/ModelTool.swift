@@ -12,6 +12,12 @@ public enum ModelProvider: String, Sendable {
     case gemini
 }
 
+public enum ModelStreamEvent: Sendable, Equatable {
+    case thinkingDelta(String)
+    case contentDelta(String)
+    case completed(finalText: String)
+}
+
 protocol ModelTool {
     func call(arguments: ToolArguments) async throws -> String
 }

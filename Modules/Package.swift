@@ -119,6 +119,13 @@ let package = Package(
             resources: [
                 .process("Resources")
             ]
+        ),
+        .testTarget(
+            name: "ModulesTests",
+            dependencies: [
+                "OnlyAgent",
+                .product(name: "ComposableArchitecture", package: "swift-composable-architecture")
+            ]
         )
     ]
 )

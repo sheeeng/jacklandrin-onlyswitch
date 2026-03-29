@@ -46,9 +46,59 @@ final class OllamaLive: Sendable {
     }
     
     func chat(_ model: String, _ prompt: String) async throws -> String {
+        let stream = try await chatStream(model, prompt)
+        var finalText = ""
+        
+        for try await event in stream {
+            switch event {
+            case let .contentDelta(delta):
+                finalText += delta
+            case let .completed(text):
+                finalText = text
+            case .thinkingDelta:
+                break
+            }
+        }
+        
+        return finalText
+    }
+    
+    func chatStream(_ model: String, _ prompt: String) async throws -> AsyncThrowingStream<ModelStreamEvent, Error> {
         let client = await MainActor.run { getOrCreateClient() }
-        let response = try await client.chat(model: Model.ID(rawValue: model) ?? "gpt-oss", messages: [.user(prompt)])
-        return response.message.content
+        let stream = try await MainActor.run {
+            try client.chatStream(
+                model: Model.ID(rawValue: model) ?? "gpt-oss",
+                messages: [
+                    .system(AppleScriptSystemPrompt.withCurrentMacOSVersion),
+                    .user(prompt)
+                ],
+                think: true
+            )
+        }
+        
+        return AsyncThrowingStream { continuation in
+            Task {
+                var finalText = ""
+                
+                do {
+                    for try await response in stream {
+                        if let thinking = response.message.thinking, !thinking.isEmpty {
+                            continuation.yield(.thinkingDelta(thinking))
+                        }
+                        
+                        let delta = response.message.content
+                        if !delta.isEmpty {
+                            finalText += delta
+                            continuation.yield(.contentDelta(delta))
+                        }
+                    }
+                    
+                    continuation.yield(.completed(finalText: finalText))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
     }
 }
-

@@ -20,6 +20,18 @@ public struct PromptDialogueService: Sendable {
         _ isAgentMode: Bool
     ) async throws -> String = { _,_,_,_ in "" }
     
+    public var requestStream: @Sendable (
+        _ prompt: AgentPrompt,
+        _ modelProvider: ModelProvider,
+        _ model: String,
+        _ isAgentMode: Bool
+    ) async throws -> AsyncThrowingStream<ModelStreamEvent, Error> = { _, _, _, _ in
+        AsyncThrowingStream { continuation in
+            continuation.yield(.completed(finalText: ""))
+            continuation.finish()
+        }
+    }
+    
     public var execute: @Sendable (String) async throws -> Void
     
     public var generatePlan: @Sendable (
@@ -72,6 +84,14 @@ extension PromptDialogueService: DependencyKey {
                 print(error)
                 throw error
             }
+        } requestStream: { prompt, modelProvider, model, isAgentMode in
+            let generator = AgentCommandGenerater()
+            return try await generator.executeStream(
+                prompt: prompt,
+                modelProvider: modelProvider,
+                model: model,
+                isAgentModel: isAgentMode
+            )
         } execute: { script in
             _ = try await script.runAppleScript()
         } generatePlan: { prompt, context, modelProvider, model in

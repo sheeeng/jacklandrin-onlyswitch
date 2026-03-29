@@ -14,6 +14,16 @@ import Networking
 public struct ModelProviderService: Sendable {
     public var setAPIKey: @Sendable (ModelProvider, String, String) -> Void
     public var models: @Sendable (ModelProvider) async throws -> [ProviderModel] = { _ in [] }
+    public var chatStream: @Sendable (
+        ModelProvider,
+        _ model: String,
+        _ prompt: String
+    ) async throws -> AsyncThrowingStream<ModelStreamEvent, Error> = { _, _, _ in
+        AsyncThrowingStream { continuation in
+            continuation.yield(.completed(finalText: ""))
+            continuation.finish()
+        }
+    }
     public var chat: @Sendable (ModelProvider, _ model: String, _ prompt: String) async throws -> String = { _,_,_ in "" }
     public var test: @Sendable (ModelProvider) async -> Bool = { _ in true }
     public var codexSignIn: @Sendable () async throws -> ChatGPTSession = {
@@ -54,17 +64,42 @@ extension ModelProviderService: DependencyKey {
                 case .gemini:
                     return try await providerModelsRemoteService.models(for: .gemini).map(ProviderModel.init(model:))
             }
-        } chat: { provider, model, prompt in
+        } chatStream: { provider, model, prompt in
             switch provider {
                 case .ollama:
-                    return try await ollamaClient.chat(model, prompt)
+                    return try await ollamaClient.chatStream(model, prompt)
                 case .openai:
-                    return try await openAIClient.chat(model, prompt)
+                    return try await openAIClient.chatStream(model, prompt)
                 case .codex:
-                    return try await codexClient.chat(model, prompt)
+                    return try await codexClient.chatStream(model, prompt)
                 case .gemini:
-                    return try await geminiClient.chat(model, prompt)
+                    return try await geminiClient.chatStream(model, prompt)
             }
+        } chat: { provider, model, prompt in
+            let stream: AsyncThrowingStream<ModelStreamEvent, Error>
+            switch provider {
+                case .ollama:
+                    stream = try await ollamaClient.chatStream(model, prompt)
+                case .openai:
+                    stream = try await openAIClient.chatStream(model, prompt)
+                case .codex:
+                    stream = try await codexClient.chatStream(model, prompt)
+                case .gemini:
+                    stream = try await geminiClient.chatStream(model, prompt)
+            }
+            
+            var accumulatedContent = ""
+            for try await event in stream {
+                switch event {
+                case let .contentDelta(delta):
+                    accumulatedContent += delta
+                case let .completed(finalText):
+                    return finalText.isEmpty ? accumulatedContent : finalText
+                case .thinkingDelta:
+                    break
+                }
+            }
+            return accumulatedContent
         } test: { provider in
             switch provider {
                 case .ollama:

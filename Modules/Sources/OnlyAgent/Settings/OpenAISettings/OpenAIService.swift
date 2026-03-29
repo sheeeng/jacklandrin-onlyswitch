@@ -29,6 +29,25 @@ final class OpenAILive: Sendable {
     
     @Sendable
     func chat(_ model: String, _ prompt: String) async throws -> String {
+        let stream = try await chatStream(model, prompt)
+        var finalText = ""
+        
+        for try await event in stream {
+            switch event {
+            case let .contentDelta(delta):
+                finalText += delta
+            case let .completed(text):
+                finalText = text
+            case .thinkingDelta:
+                break
+            }
+        }
+        
+        return finalText
+    }
+    
+    @Sendable
+    func chatStream(_ model: String, _ prompt: String) async throws -> AsyncThrowingStream<ModelStreamEvent, Error> {
         @Shared(.openAIAPIKey) var apiKeyShared: String = ""
         @Shared(.openAIHost) var hostShared
         let apiKey: String = apiKeyShared
@@ -57,18 +76,37 @@ final class OpenAILive: Sendable {
             baseURL: baseURL,
             requestFormat: requestFormat
         )
-        let result = try await openAIService.chatCompletionRequest(
+        let stream = try await openAIService.streamingChatCompletionRequest(
             body: .init(
                 model: model,
                 messages: [
-                    .system(content: .text("You are an AppleScript expert. You generate executable AppleScript code (NOT shell scripts) for macOS automation. Always use AppleScript syntax with 'tell application' commands. Never output shell scripts or bash commands directly.")),
+                    .system(content: .text(AppleScriptSystemPrompt.withCurrentMacOSVersion)),
                     .user(content: .text(prompt))
                 ]
             ),
             secondsToWait: 120
         )
         
-        return result.choices.first?.message.content ?? ""
+        return AsyncThrowingStream { continuation in
+            Task {
+                var finalText = ""
+                
+                do {
+                    for try await chunk in stream {
+                        for choice in chunk.choices {
+                            guard let delta = choice.delta.content, !delta.isEmpty else { continue }
+                            finalText += delta
+                            continuation.yield(.contentDelta(delta))
+                        }
+                    }
+                    
+                    continuation.yield(.completed(finalText: finalText))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
     }
     
     @Sendable

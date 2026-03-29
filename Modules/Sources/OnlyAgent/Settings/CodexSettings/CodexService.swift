@@ -36,7 +36,24 @@ final class CodexLive: Sendable {
 
     @Sendable
     func chat(_ model: String, _ prompt: String) async throws -> String {
-        try await codexRuntimePool.chat(model: model, prompt: prompt)
+        let stream = try await codexRuntimePool.chatStream(model: model, prompt: prompt)
+        var finalText = ""
+        for try await event in stream {
+            switch event {
+            case let .contentDelta(delta):
+                finalText += delta
+            case let .completed(text):
+                finalText = text
+            case .thinkingDelta:
+                break
+            }
+        }
+        return finalText
+    }
+    
+    @Sendable
+    func chatStream(_ model: String, _ prompt: String) async throws -> AsyncThrowingStream<ModelStreamEvent, Error> {
+        try await codexRuntimePool.chatStream(model: model, prompt: prompt)
     }
 
     @Sendable
@@ -100,7 +117,7 @@ private actor CodexRuntimePool {
         }
     }
 
-    func chat(model: String, prompt: String) async throws -> String {
+    func chatStream(model: String, prompt: String) async throws -> AsyncThrowingStream<ModelStreamEvent, Error> {
         let runtime = try ensureRuntime(for: model)
         try await ensureRestored(for: model)
         guard let session = await runtime.currentSession(), !session.accessToken.isEmpty else {
@@ -117,7 +134,33 @@ private actor CodexRuntimePool {
         }
 
         let userPrompt = UserMessageRequest(text: prompt)
-        return try await runtime.sendMessage(userPrompt, in: threadID)
+        let eventStream = try await runtime.streamMessage(userPrompt, in: threadID)
+        
+        return AsyncThrowingStream { continuation in
+            Task {
+                var finalText = ""
+                
+                do {
+                    for try await event in eventStream {
+                        switch event {
+                        case let .assistantMessageDelta(_, _, delta):
+                            finalText += delta
+                            continuation.yield(.contentDelta(delta))
+                        case let .messageCommitted(message):
+                            if message.role == .assistant && finalText.isEmpty {
+                                finalText = message.text
+                            }
+                        default:
+                            break
+                        }
+                    }
+                    continuation.yield(.completed(finalText: finalText))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
     }
 
     private func ensureRuntime(for model: String) throws -> AgentRuntime {
@@ -134,6 +177,7 @@ private actor CodexRuntimePool {
             configuration: .init(
                 model: model,
                 reasoningEffort: .medium,
+                instructions: AppleScriptSystemPrompt.withCurrentMacOSVersion,
                 enableWebSearch: false
             )
         )

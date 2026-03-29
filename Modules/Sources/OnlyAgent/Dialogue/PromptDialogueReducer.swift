@@ -43,6 +43,7 @@ public struct PromptDialogueReducer {
         var taskContext: TaskContext? = nil
         var showPlanPreview: Bool = false
         var isMultiStepMode: Bool = false
+        var thinkingText: String = ""
         
         public init(
             prompt: String = "",
@@ -70,6 +71,7 @@ public struct PromptDialogueReducer {
         case loadModels(TaskResult<[ModelProvider: [String]]>)
         case selectAIModel(provider: String, model: String)
         case sendPrompt
+        case receiveStreamEvent(ModelStreamEvent)
         case generateAppleScript(TaskResult<String>)
         case executeAppleScript
         case finishExecution(TaskResult<Void>)
@@ -104,6 +106,7 @@ public struct PromptDialogueReducer {
                 case .appear:
                     state.prompt = ""
                     state.appleScript = ""
+                    state.thinkingText = ""
                     state.errorMessage = nil
                     state.modelTags = [
                         .ollama: ollamaModels.map(\.model)
@@ -159,6 +162,7 @@ public struct PromptDialogueReducer {
                         state.executionPlan = nil
                         state.executionHistory = []
                         state.currentStepIndex = -1
+                        state.thinkingText = ""
                         
                         guard let currentAIModel = state.currentAIModel else {
                             return .none
@@ -195,6 +199,7 @@ public struct PromptDialogueReducer {
                     } else {
                         // Single-step execution (existing flow)
                         state.appleScript = ""
+                        state.thinkingText = ""
                         state.isGenerating = true
                         state.isSuccess = nil
                         state.isMultiStepMode = false
@@ -203,19 +208,41 @@ public struct PromptDialogueReducer {
                             return .none
                         }
                         return .run { [prompt, isAgentMode, currentAIModel] send in
-                            await send(
-                                .generateAppleScript(
-                                    TaskResult {
-                                        let modelProvider = ModelProvider(rawValue: currentAIModel.provider) ?? .ollama
-                                        return try await promptService.request(.purpose(prompt), modelProvider, currentAIModel.model, isAgentMode)
-                                    }
+                            do {
+                                let modelProvider = ModelProvider(rawValue: currentAIModel.provider) ?? .ollama
+                                let stream = try await promptService.requestStream(
+                                    .purpose(prompt),
+                                    modelProvider,
+                                    currentAIModel.model,
+                                    isAgentMode
                                 )
-                            )
+                                
+                                for try await event in stream {
+                                    await send(.receiveStreamEvent(event))
+                                }
+                            } catch {
+                                await send(.generateAppleScript(.failure(error)))
+                            }
                         }
+                    }
+                    
+                case let .receiveStreamEvent(event):
+                    switch event {
+                    case let .thinkingDelta(delta):
+                        state.thinkingText += delta
+                        return .none
+                    case let .contentDelta(delta):
+                        // Fallback behavior for providers without explicit thinking events.
+                        state.thinkingText += delta
+                        return .none
+                    case let .completed(finalText):
+                        state.thinkingText = ""
+                        return .send(.generateAppleScript(.success(finalText)))
                     }
                     
                 case .generateAppleScript(.success(let appleScript)):
                     state.appleScript = appleScript
+                    state.thinkingText = ""
                     state.isGenerating = false
 
                     let isAgentMode = state.isAgentMode
@@ -233,6 +260,7 @@ public struct PromptDialogueReducer {
                     }
                     
                 case let .generateAppleScript(.failure(error)):
+                    state.thinkingText = ""
                     state.isGenerating = false
                     state.isSuccess = false
                     state.errorMessage = "\(error.localizedDescription)"
@@ -290,6 +318,7 @@ public struct PromptDialogueReducer {
                     }
                     
                 case .disappear:
+                    state.thinkingText = ""
                     state.opacity = 0
                     state.blurRadius = 20.0
                     return .none
@@ -568,6 +597,7 @@ public struct PromptDialogueReducer {
                 case .cancelExecution:
                     state.isExecuting = false
                     state.isPlanning = false
+                    state.thinkingText = ""
                     state.executionPlan = nil
                     state.currentStepIndex = -1
                     state.executionHistory = []

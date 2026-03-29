@@ -102,7 +102,11 @@ public struct PromptDialogueView: View {
         HStack {
             Spacer()
             if store.isGenerating {
-                ThinkingDotsView()
+                if store.thinkingText.isEmpty {
+                    ThinkingDotsView()
+                } else {
+                    ThinkingTypingView(text: store.thinkingText)
+                }
             } else {
                 Button {
                     store.send(.sendPrompt)
@@ -405,6 +409,76 @@ private struct ThinkingDotsView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(minWidth: 70, alignment: .trailing)
+    }
+}
+
+@available(macOS 26.0, *)
+private struct ThinkingTypingView: View {
+    let text: String
+    let font: Font
+    
+    @State private var visibleCharacters: Int = 0
+    @State private var typingTask: Task<Void, Never>? = nil
+    
+    init(text: String, font: Font = .caption) {
+        self.text = text
+        self.font = font
+    }
+    
+    var body: some View {
+        Text(displayText)
+            .font(font.monospaced())
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+            .multilineTextAlignment(.trailing)
+            .frame(minWidth: 120, alignment: .trailing)
+            .onAppear {
+                if text.isEmpty {
+                    visibleCharacters = 0
+                } else {
+                    visibleCharacters = min(text.count, max(visibleCharacters, 1))
+                }
+                startTypingIfNeeded()
+            }
+            .onChange(of: text) { _, newValue in
+                if newValue.isEmpty {
+                    visibleCharacters = 0
+                    typingTask?.cancel()
+                    typingTask = nil
+                } else {
+                    startTypingIfNeeded()
+                }
+            }
+            .onDisappear {
+                typingTask?.cancel()
+                typingTask = nil
+            }
+    }
+    
+    private var displayText: String {
+        let prefixCount = max(0, min(visibleCharacters, text.count))
+        return String(text.prefix(prefixCount))
+    }
+    
+    private func startTypingIfNeeded() {
+        guard visibleCharacters < text.count else { return }
+        
+        typingTask?.cancel()
+        typingTask = Task {
+            while !Task.isCancelled && visibleCharacters < text.count {
+                do {
+                    try await Task.sleep(nanoseconds: 16_000_000)
+                } catch {
+                    return
+                }
+                
+                await MainActor.run {
+                    let remaining = max(0, text.count - visibleCharacters)
+                    let step = remaining > 80 ? 4 : (remaining > 24 ? 2 : 1)
+                    visibleCharacters = min(text.count, visibleCharacters + step)
+                }
+            }
+        }
     }
 }
 
