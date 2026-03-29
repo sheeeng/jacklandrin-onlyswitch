@@ -102,8 +102,7 @@ public struct PromptDialogueView: View {
         HStack {
             Spacer()
             if store.isGenerating {
-                AppKitProgressView()
-                    .scaleEffect(0.6)
+                ThinkingDotsView()
             } else {
                 Button {
                     store.send(.sendPrompt)
@@ -181,8 +180,7 @@ public struct PromptDialogueView: View {
                 }
                 .buttonStyle(.plain)
             } else if store.isExecuting {
-                AppKitProgressView()
-                    .scaleEffect(0.6)
+                ThinkingDotsView()
             }
         }
         .padding(.trailing, 10)
@@ -268,8 +266,7 @@ public struct PromptDialogueView: View {
                     .font(.headline)
                 Spacer()
                 if store.isPlanning {
-                    AppKitProgressView()
-                        .scaleEffect(0.6)
+                    ThinkingDotsView()
                 } else {
                     Text("\(plan.filter { $0.status == .completed }.count)/\(plan.count)")
                         .font(.caption)
@@ -363,8 +360,7 @@ private struct StepRowView: View {
             Spacer()
             
             if isCurrent {
-                AppKitProgressView()
-                    .scaleEffect(0.5)
+                ThinkingDotsView(font: .caption2)
             }
         }
         .padding(.vertical, 4)
@@ -386,6 +382,28 @@ private struct StepRowView: View {
         case .skipped:
             return .orange
         }
+    }
+}
+
+@available(macOS 26.0, *)
+private struct ThinkingDotsView: View {
+    let font: Font
+    
+    init(font: Font = .caption) {
+        self.font = font
+    }
+    
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let phase = Int(timeline.date.timeIntervalSinceReferenceDate * 2) % 4
+            let dots = String(repeating: ".", count: phase)
+            let padding = String(repeating: " ", count: max(0, 3 - phase))
+            
+            Text("thinking\(dots)\(padding)")
+                .font(font.monospaced())
+                .foregroundStyle(.secondary)
+        }
+        .frame(minWidth: 70, alignment: .trailing)
     }
 }
 
