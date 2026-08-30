@@ -71,8 +71,8 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/pointfreeco/swift-composable-architecture", exact: "1.25.3"),
-        .package(url: "https://github.com/pointfreeco/swift-sharing", exact: "2.8.0"),
+        .package(url: "https://github.com/pointfreeco/swift-composable-architecture", exact: "1.26.2"),
+        .package(url: "https://github.com/pointfreeco/swift-sharing", exact: "2.10.0"),
         .package(url: "https://github.com/gonzalezreal/swift-markdown-ui", exact: "2.3.1"),
         .package(url: "https://github.com/Alamofire/Alamofire", exact: "5.5.0"),
         .package(url: "https://github.com/siteline/swiftui-introspect", from: "26.0.0"),
